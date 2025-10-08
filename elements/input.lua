@@ -1528,4 +1528,336 @@ uie.add("checkbox", {
     end
 })
 
+-- Basic star, behaving like a row with a label.
+uie.add("star", {
+    base = "row",
+
+    style = {
+        padding = 0,
+        spacing = 4,
+
+        starNormalBG = { 0.8, 0.8, 0.8, 0.9 },
+        starNormalFG = { 0, 0, 0, 0.8, 0 },
+        starNormalBorder = { 0.08, 0.08, 0.08, 0.6, 1 },
+
+        starDisabledBG = { 0.5, 0.5, 0.5, 0.7 },
+        starDisabledFG = { 0, 0, 0, 0.7, 0 },
+        starDisabledBorder = { 0, 0, 0, 0.7, 1 },
+
+        starHoveredBG = { 1, 1, 1, 0.9 },
+        starHoveredFG = { 0, 0, 0, 0.9, 1 },
+        starHoveredBorder = { 0, 0, 0, 0.9, 1 },
+
+        starPressedBG = { 0.95, 0.95, 0.95, 0.9 },
+        starPressedFG = { 0, 0, 0, 0.9, 1 },
+        starPressedBorder = { 0, 0, 0, 0.9, 1 },
+
+        activeIconColor = { 1, 1, 1, 1.0 },
+        mixedIconColor = { 1, 1, 1, 1.0 },
+        inactiveIconColor = { 1, 1, 1, 1.0 }
+    },
+
+    init = function(self, value, cb)
+        label = uie.label()
+
+        local star = uie.button():hook({
+            layout = function(orig, self)
+                local label = self.parent.label
+                local star = self
+                local height = label.height
+                local heightRounded = math.ceil(label.height / 2) * 2
+
+                orig(self)
+
+                star.width = heightRounded
+                star.height = heightRounded
+                star.realWidth = heightRounded
+                star.realHeight = heightRounded
+            end
+        })
+
+        star.style.normalBG = self.style.starNormalBG
+        star.style.normalFG = self.style.starNormalFG
+        star.style.normalBorder = self.style.starNormalBorder
+
+        star.style.disabledBG = self.style.starDisabledBG
+        star.style.disabledFG = self.style.starDisabledFG
+        star.style.disabledBorder = self.style.starDisabledBorder
+
+        star.style.hoveredBG = self.style.starHoveredBG
+        star.style.hoveredFG = self.style.starHoveredFG
+        star.style.hoveredBorder = self.style.starHoveredBorder
+
+        star.style.pressedBG = self.style.starPressedBG
+        star.style.pressedFG = self.style.starPressedFG
+        star.style.pressedBorder = self.style.starPressedBorder
+
+        -- Make sure the label has its height set, star needs this
+        label:layout()
+
+        uie.row.init(self, { star, label })
+
+        self.star = star
+        self.label = label
+        self.enabled = true
+        self.cb = cb
+        self.value = value
+        self.activeIcon = "ui:icons/starFilled"
+        self.mixedIcon = "ui:icons/starMixed"
+        self.inactiveIcon = "ui:icons/starEmpty"
+
+        self:layout()
+        self:updateIcon()
+    end,
+
+    getEnabled = function(self)
+        return self._enabled
+    end,
+
+    setEnabled = function(self, value)
+        self.star:setEnabled(value)
+        self._enabled = value
+        self.interactive = value and 1 or -1
+    end,
+
+    getText = function(self)
+        return self.label.text
+    end,
+
+    setText = function(self, value)
+        self.label.text = value
+    end,
+
+    getValue = function(self)
+        return self._value
+    end,
+
+    setValue = function(self, value)
+        self._value = value
+        self:updateIcon()
+    end,
+
+    centerIcon = function(self, icon)
+        local width, height = icon.image:getDimensions()
+
+        return icon:with(uiu.at(-0.5 - width / 2, -0.5 - height / 2))
+    end,
+
+    updateIcon = function(self)
+        local star = self.star
+        local children = star.children or {}
+        local value = self.value
+        local previousValue = self._previousIconValue
+
+        if value ~= previousValue then
+            while #children > 0 do
+                table.remove(children, 1)
+            end
+        end
+
+        local icon
+        local iconColor
+        if value and self.activeIcon then
+            icon = self.activeIcon
+            color = self.style.activeIconColor
+        elseif value == nil and self.mixedIcon then
+            icon = self.mixedIcon
+            color = self.style.mixedIconColor
+        elseif value == false and self.inactiveIcon then
+            icon = self.inactiveIcon
+            color = self.style.inactiveIconColor
+        end
+
+        if icon then
+            if type(icon) == "string" then
+                icon = uie.icon(icon)
+            end
+
+            icon = self:centerIcon(icon)
+            icon.style.color = color
+            star:addChild(icon)
+        end
+
+        self._previousIconValue = value
+
+        star:reflow()
+    end,
+
+    onClick = function(self, x, y, button)
+        if self.enabled and button == 1 then
+            self:setValue(not self:getValue())
+
+            if self.cb then
+                self:cb(self.value)
+            end
+        end
+    end
+})
+
+-- Basic warning sign, behaving like a row with a label.
+uie.add("warning", {
+    base = "row",
+
+    style = {
+        padding = 0,
+        spacing = 4,
+
+        warningNormalBG = { 0.8, 0.8, 0.8, 0.9 },
+        warningNormalFG = { 0, 0, 0, 0.8, 0 },
+        warningNormalBorder = { 0.08, 0.08, 0.08, 0.6, 1 },
+
+        warningDisabledBG = { 0.5, 0.5, 0.5, 0.7 },
+        warningDisabledFG = { 0, 0, 0, 0.7, 0 },
+        warningDisabledBorder = { 0, 0, 0, 0.7, 1 },
+
+        warningHoveredBG = { 1, 1, 1, 0.9 },
+        warningHoveredFG = { 0, 0, 0, 0.9, 1 },
+        warningHoveredBorder = { 0, 0, 0, 0.9, 1 },
+
+        warningPressedBG = { 0.95, 0.95, 0.95, 0.9 },
+        warningPressedFG = { 0, 0, 0, 0.9, 1 },
+        warningPressedBorder = { 0, 0, 0, 0.9, 1 },
+
+        activeIconColor = { 1, 1, 1, 1.0 },
+        mixedIconColor = { 1, 1, 1, 1.0 },
+        inactiveIconColor = { 1, 1, 1, 1.0 }
+    },
+
+    init = function(self, value, cb)
+        label = uie.label()
+
+        local warning = uie.button():hook({
+            layout = function(orig, self)
+                local label = self.parent.label
+                local warning = self
+                local height = label.height
+                local heightRounded = math.ceil(label.height / 2) * 2
+
+                orig(self)
+
+                warning.width = heightRounded
+                warning.height = heightRounded
+                warning.realWidth = heightRounded
+                warning.realHeight = heightRounded
+            end
+        })
+
+        warning.style.normalBG = self.style.warningNormalBG
+        warning.style.normalFG = self.style.warningNormalFG
+        warning.style.normalBorder = self.style.warningNormalBorder
+
+        warning.style.disabledBG = self.style.warningDisabledBG
+        warning.style.disabledFG = self.style.warningDisabledFG
+        warning.style.disabledBorder = self.style.warningDisabledBorder
+
+        warning.style.hoveredBG = self.style.warningHoveredBG
+        warning.style.hoveredFG = self.style.warningHoveredFG
+        warning.style.hoveredBorder = self.style.warningHoveredBorder
+
+        warning.style.pressedBG = self.style.warningPressedBG
+        warning.style.pressedFG = self.style.warningPressedFG
+        warning.style.pressedBorder = self.style.warningPressedBorder
+
+        -- Make sure the label has its height set, warning needs this
+        label:layout()
+
+        uie.row.init(self, { warning, label })
+
+        self.warning = warning
+        self.label = label
+        self.enabled = true
+        self.cb = cb
+        self.value = value
+        self.activeIcon = "ui:icons/warningFilled"
+        self.mixedIcon = "ui:icons/warningMixed"
+        self.inactiveIcon = "ui:icons/warningEmpty"
+
+        self:layout()
+        self:updateIcon()
+    end,
+
+    getEnabled = function(self)
+        return self._enabled
+    end,
+
+    setEnabled = function(self, value)
+        self.warning:setEnabled(value)
+        self._enabled = value
+        self.interactive = value and 1 or -1
+    end,
+
+    getText = function(self)
+        return self.label.text
+    end,
+
+    setText = function(self, value)
+        self.label.text = value
+    end,
+
+    getValue = function(self)
+        return self._value
+    end,
+
+    setValue = function(self, value)
+        self._value = value
+        self:updateIcon()
+    end,
+
+    centerIcon = function(self, icon)
+        local width, height = icon.image:getDimensions()
+
+        return icon:with(uiu.at(-0.5 - width / 2, -0.5 - height / 2))
+    end,
+
+    updateIcon = function(self)
+        local warning = self.warning
+        local children = warning.children or {}
+        local value = self.value
+        local previousValue = self._previousIconValue
+
+        if value ~= previousValue then
+            while #children > 0 do
+                table.remove(children, 1)
+            end
+        end
+
+        local icon
+        local iconColor
+        if value and self.activeIcon then
+            icon = self.activeIcon
+            color = self.style.activeIconColor
+        elseif value == nil and self.mixedIcon then
+            icon = self.mixedIcon
+            color = self.style.mixedIconColor
+        elseif value == false and self.inactiveIcon then
+            icon = self.inactiveIcon
+            color = self.style.inactiveIconColor
+        end
+
+        if icon then
+            if type(icon) == "string" then
+                icon = uie.icon(icon)
+            end
+
+            icon = self:centerIcon(icon)
+            icon.style.color = color
+            warning:addChild(icon)
+        end
+
+        self._previousIconValue = value
+
+        warning:reflow()
+    end,
+
+    onClick = function(self, x, y, button)
+        if self.enabled and button == 1 then
+            self:setValue(not self:getValue())
+
+            if self.cb then
+                self:cb(self.value)
+            end
+        end
+    end
+})
+
 return uie
