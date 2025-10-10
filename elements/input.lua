@@ -1720,7 +1720,9 @@ uie.add("warning", {
 
         activeIconColor = { 1, 1, 1, 1.0 },
         mixedIconColor = { 1, 1, 1, 1.0 },
-        inactiveIconColor = { 1, 1, 1, 1.0 }
+        inactiveIconColor = { 1, 1, 1, 1.0 },
+
+        warningHideWhenInactive = true
     },
 
     init = function(self, value, cb)
@@ -1739,6 +1741,12 @@ uie.add("warning", {
                 warning.height = heightRounded
                 warning.realWidth = heightRounded
                 warning.realHeight = heightRounded
+            end,
+            draw = function(orig, self)
+                if self.hideWarning then
+                    return
+                end
+                orig(self)
             end
         })
 
@@ -1757,6 +1765,8 @@ uie.add("warning", {
         warning.style.pressedBG = self.style.warningPressedBG
         warning.style.pressedFG = self.style.warningPressedFG
         warning.style.pressedBorder = self.style.warningPressedBorder
+
+        warning.style.warningHideWhenInactive = self.style.warningHideWhenInactive
 
         -- Make sure the label has its height set, warning needs this
         label:layout()
@@ -1845,6 +1855,8 @@ uie.add("warning", {
         end
 
         self._previousIconValue = value
+
+        warning.hideWarning = self.style.warningHideWhenInactive and not value
 
         warning:reflow()
     end,
