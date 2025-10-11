@@ -1528,6 +1528,80 @@ uie.add("checkbox", {
     end
 })
 
+-- Simple heart toggle, no label.
+uie.add("heart", {
+    base = "group",
+    interactive = 1,
+
+    style = {
+        icon = "ui:icons/heartFilled",   -- default icon path for active
+        inactiveIcon = "ui:icons/heartEmpty",
+        activeColor = { 1, 0, 0, 1 },    -- red when active
+        inactiveColor = { 0.5, 0.5, 0.5, 1 }, -- gray when inactive
+        size = 24
+    },
+
+    init = function(self, value, cb)
+        uie.group.init(self)
+
+        self._enabled = true
+        self._value = value or false
+        self.cb = cb
+
+        -- create the icon
+        local iconPath = self._value and self.style.icon or self.style.inactiveIcon
+        self.icon = uie.icon(iconPath)
+        self.icon.style.color = self._value and self.style.activeColor or self.style.inactiveColor
+        self.icon.width = self.style.size
+        self.icon.height = self.style.size
+        self:addChild(self.icon)
+
+        -- set group size
+        self.width = self.style.size
+        self.height = self.style.size
+
+        -- center icon
+        self:centerIcon()
+    end,
+
+    centerIcon = function(self)
+        local w, h = self.icon.image:getDimensions()
+        self.icon = self.icon:with(uiu.at(-0.5 - w / 2, -0.5 - h / 2))
+    end,
+
+    setValue = function(self, value)
+        self._value = value
+        if self.icon then
+            self.icon.style.color = value and self.style.activeColor or self.style.inactiveColor
+            local path = value and self.style.icon or self.style.inactiveIcon
+            self.icon:setImage(path)
+        end
+    end,
+
+    getValue = function(self)
+        return self._value
+    end,
+
+    setEnabled = function(self, value)
+        self._enabled = value
+        self.interactive = value and 1 or -1
+    end,
+
+    getEnabled = function(self)
+        return self._enabled
+    end,
+
+    onClick = function(self, x, y, button)
+        if self._enabled and button == 1 then
+            self:setValue(not self._value)
+            if self.cb then
+                self:cb(self._value)
+            end
+        end
+    end
+})
+
+
 -- Basic star, behaving like a row with a label.
 uie.add("star", {
     base = "row",
@@ -1694,8 +1768,96 @@ uie.add("star", {
     end
 })
 
--- Basic warning sign, behaving like a row with a label.
+-- Simple warning sign that can be shown or hidden, and clicked to trigger a callback.
 uie.add("warning", {
+    base = "group",  -- simple container, no background
+    interactive = 1, -- can receive clicks
+
+    style = {
+        padding = 0,
+        spacing = 0,
+
+        icon = "ui:icons/warningBig",
+        color = { 1, 0.9, 0, 1 },  -- bright yellow by default
+        sizeMultiplier = 1.0,      -- 1.0 = normal checkbox size
+        hideWhenInactive = true
+    },
+
+    init = function(self, visible, cb)
+        uie.group.init(self)
+
+        self.cb = cb
+        self._enabled = true
+        self._shown = not not visible -- whether it should be visible
+
+        self.icon = uie.icon(self.style.icon)
+        self.icon.style.color = self.style.color
+        self:addChild(self.icon)
+
+        -- Give it a default size so it shows up immediately
+        self.width = 16
+        self.height = 16
+        self.icon.width = 16
+        self.icon.height = 16
+
+        -- Layout hook
+        self:hook({
+            layout = function(orig, self)
+                local parent = self.parent
+                local targetHeight = 16
+                if parent and parent.label then
+                    targetHeight = math.ceil(parent.label.height / 2) * 2
+                end
+                local size = targetHeight * self.style.sizeMultiplier
+                self.icon.width = size
+                self.icon.height = size
+                self.width = size
+                self.height = size
+                orig(self)
+            end
+        })
+
+        self:setVisible(self._shown)
+        self:centerIcon()
+    end,
+
+    centerIcon = function(self)
+        local width, height = self.icon.image:getDimensions()
+        return self.icon:with(uiu.at(-0.5 - width / 2, -0.5 - height / 2))
+    end,
+
+    setVisible = function(self, value)
+        self._shown = value
+        self.visible = value
+        if self.icon then
+            self.icon.visible = value
+        end
+    end,
+
+    setEnabled = function(self, value)
+        self._enabled = value
+        self.interactive = value and 1 or -1
+    end,
+
+    updateVisibility = function(self)
+        self.visible = self._enabled and self.visible
+        self.icon.visible = self.visible
+    end,
+
+    getEnabled = function(self)
+        return self._enabled
+    end,
+
+    onClick = function(self, x, y, button)
+        if self._enabled and self.visible and button == 1 and self.cb then
+            self:cb()
+        end
+    end
+})
+
+
+-- Basic warning sign, behaving like a row with a label.
+uie.add("warning_old", {
     base = "row",
 
     style = {
@@ -1863,7 +2025,7 @@ uie.add("warning", {
 
     onClick = function(self, x, y, button)
         if self.enabled and button == 1 then
-            self:setValue(not self:getValue())
+            --self:setValue(not self:getValue())
 
             if self.cb then
                 self:cb(self.value)
