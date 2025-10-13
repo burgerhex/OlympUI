@@ -1536,6 +1536,7 @@ uie.add("heart", {
     style = {
         padding = 0,
         spacing = 0,
+        size = 20,
         icon = "ui:icons/heartSmallWhite",
 
         activeColor = {1, 0, 0, 1},
@@ -1559,8 +1560,8 @@ uie.add("heart", {
         self.icon = self.icon:with(uiu.at(-0.5 - width / 2, -0.5 - height / 2))
         self:addChild(self.icon)
 
-        self.width = 16
-        self.height = 16
+        self.width = self.style.size
+        self.height = self.style.size
 
         self._fadeColor = { table.unpack(self.icon.style.color) }
         self._fadeColorPrev = { table.unpack(self._fadeColor) }
@@ -1570,7 +1571,7 @@ uie.add("heart", {
         self:hook({
             layout = function(orig, self)
                 local parent = self.parent
-                local size = 16
+                local size = self.style.size
                 if parent and parent.label then
                     size = math.ceil(parent.label.height / 2) * 2
                 end
@@ -1639,180 +1640,6 @@ uie.add("heart", {
 })
 
 
-uie.add("heart_old2", {
-    base = "group",
-    interactive = 1,
-
-    style = {
-        icon = "ui:icons/heartSmallWhite",
-        activeColor = {1, 0, 0, 1},         -- bright red
-        activeHoverColor = {1, 0.3, 0.3, 1}, -- lighter red on hover
-        inactiveColor = {0.5, 0.5, 0.5, 1},  -- gray
-        inactiveHoverColor = {0.7, 0.4, 0.4, 1}, -- grayish-red on hover
-        size = 24,
-        fadeDuration = 0.2
-    },
-
-    init = function(self, value, cb)
-        uie.group.init(self)
-
-        self._enabled = true
-        self._value = value or false
-        self.cb = cb
-
-        -- create icon
-        self.icon = uie.icon(self.style.icon)
-        self.icon.style.color = self._value and self.style.activeColor or self.style.inactiveColor
-        self.icon.width = self.style.size
-        self.icon.height = self.style.size
-        self:addChild(self.icon)
-
-        -- set group size
-        self.width = self.style.size
-        self.height = self.style.size
-
-        -- fade state
-        self._fadeColor = {unpack(self.icon.style.color)}
-        self._fadePrev = {unpack(self._fadeColor)}
-        self._fadeTime = 0
-
-        self:centerIcon()
-    end,
-
-    centerIcon = function(self)
-        local w, h = self.icon.image:getDimensions()
-        self.icon = self.icon:with(uiu.at(-0.5 - w/2, -0.5 - h/2))
-    end,
-
-    setValue = function(self, value)
-        if self._value == value then return end
-        self._value = value
-        -- start fade to new value color
-        self._fadePrev = {unpack(self._fadeColor)}
-        self._fadeTime = 0
-    end,
-
-    getValue = function(self) return self._value end,
-
-    setEnabled = function(self, value)
-        self._enabled = value
-        self.interactive = value and 1 or -1
-    end,
-
-    getEnabled = function(self) return self._enabled end,
-
-    update = function(self, dt)
-        local style = self.style
-
-        -- pick target color based on value + hover
-        local targetColor
-        if self._value then
-            targetColor = self.hovered and style.activeHoverColor or style.activeColor
-        else
-            targetColor = self.hovered and style.inactiveHoverColor or style.inactiveColor
-        end
-
-        -- check if target changed
-        local function colorsEqual(a,b)
-            for i=1,4 do if a[i] ~= b[i] then return false end end
-            return true
-        end
-        if not colorsEqual(targetColor, self._fadePrev) then
-            self._fadePrev = {unpack(self._fadeColor)}
-            self._fadeTime = 0
-        end
-
-        -- fade
-        if self._fadeTime < style.fadeDuration then
-            self._fadeTime = math.min(self._fadeTime + dt, style.fadeDuration)
-            local f = self._fadeTime / style.fadeDuration
-            f = f*f*f*f*f -- quintic easing
-            uiu.fade(false, f, self._fadeColor, self._fadePrev, targetColor)
-            self.icon.style.color = self._fadeColor
-            self.icon:repaint()
-        end
-    end,
-
-    onClick = function(self, x, y, button)
-        if self._enabled and button == 1 then
-            self:setValue(not self._value)
-            if self.cb then self:cb(self._value) end
-        end
-    end
-})
-
-
--- Simple heart toggle, no label.
-uie.add("heart_old", {
-    base = "group",
-    interactive = 1,
-
-    style = {
-        icon = "ui:icons/heartSmallWhite",   -- default icon path for active
-        activeColor = { 1, 0, 0, 1 },    -- red when active
-        inactiveColor = { 0.5, 0.5, 0.5, 1 }, -- gray when inactive
-        size = 24
-    },
-
-    init = function(self, value, cb)
-        uie.group.init(self)
-
-        self._enabled = true
-        self._value = value or false
-        self.cb = cb
-
-        -- create the icon
-        local iconPath = self.style.icon
-        self.icon = uie.icon(iconPath)
-        self.icon.style.color = self._value and self.style.activeColor or self.style.inactiveColor
-        self.icon.width = self.style.size
-        self.icon.height = self.style.size
-        self:addChild(self.icon)
-
-        -- set group size
-        self.width = self.style.size
-        self.height = self.style.size
-
-        -- center icon
-        self:centerIcon()
-    end,
-
-    centerIcon = function(self)
-        local w, h = self.icon.image:getDimensions()
-        self.icon = self.icon:with(uiu.at(-0.5 - w / 2, -0.5 - h / 2))
-    end,
-
-    setValue = function(self, value)
-        self._value = value
-        if self.icon then
-            self.icon.style.color = value and self.style.activeColor or self.style.inactiveColor
-            self.icon:reflow()
-        end
-    end,
-
-    getValue = function(self)
-        return self._value
-    end,
-
-    setEnabled = function(self, value)
-        self._enabled = value
-        self.interactive = value and 1 or -1
-    end,
-
-    getEnabled = function(self)
-        return self._enabled
-    end,
-
-    onClick = function(self, x, y, button)
-        if self._enabled and button == 1 then
-            self:setValue(not self._value)
-            if self.cb then
-                self:cb(self._value)
-            end
-        end
-    end
-})
-
 uie.add("warning", {
     base = "group",
     interactive = 1,
@@ -1820,10 +1647,10 @@ uie.add("warning", {
     style = {
         padding = 0,
         spacing = 0,
+        size = 20,
         icon = "ui:icons/warningWhite",
         color = { 1, 0.9, 0, 1 },
         hoverColor = { 1, 1, 0.6, 1 },
-        sizeMultiplier = 1.0,
         hideWhenInactive = true,
         fadeInOutDuration = 0.1,
         fadeColorDuration = 0.2
@@ -1843,10 +1670,10 @@ uie.add("warning", {
         self.icon.style.color = { table.unpack(self.style.color) }
         self:addChild(self.icon)
 
-        self.width = 16
-        self.height = 16
-        self.icon.width = 16
-        self.icon.height = 16
+        self.width = self.style.size
+        self.height = self.style.size
+        self.icon.width = self.style.size
+        self.icon.height = self.style.size
 
         self._fadeColor = { table.unpack(self.icon.style.color) }
         self._fadeColorPrev = { table.unpack(self._fadeColor) }
@@ -1856,11 +1683,11 @@ uie.add("warning", {
         self:hook({
             layout = function(orig, self)
                 local parent = self.parent
-                local targetHeight = 16
+                local targetHeight = self.style.size
                 if parent and parent.label then
                     targetHeight = math.ceil(parent.label.height / 2) * 2
                 end
-                local size = targetHeight * self.style.sizeMultiplier
+                local size = targetHeight
                 self.icon.width = size
                 self.icon.height = size
                 self.width = size
@@ -1942,223 +1769,5 @@ uie.add("warning", {
     end
 })
 
-
--- Simple warning sign that can be shown or hidden, and clicked to trigger a callback.
-uie.add("warning_old2", {
-    base = "group",
-    interactive = 1,
-
-    style = {
-        padding = 0,
-        spacing = 0,
-
-        icon = "ui:icons/warningWhite",
-        color = { 1, 0.9, 0, 1 },           -- normal bright yellow
-        hoverColor = { 1, 1, 0.6, 1 },      -- slightly lighter yellow
-        sizeMultiplier = 1.0,
-        hideWhenInactive = true,
-        fadeDuration = 0.2
-    },
-
-    init = function(self, visible, cb)
-        uie.group.init(self)
-
-        self.cb = cb
-        self._enabled = true
-        self._shown = not not visible
-
-        self.icon = uie.icon(self.style.icon)
-        self.icon.style.color = self.style.color
-        self:addChild(self.icon)
-
-        self.width = 16
-        self.height = 16
-        self.icon.width = 16
-        self.icon.height = 16
-
-        self._fadeColorStyle = {}
-        self._fadePrev = false
-        self._fadeColor = false
-        self._fadeTime = 0
-
-        -- Layout hook
-        self:hook({
-            layout = function(orig, self)
-                local parent = self.parent
-                local targetHeight = 16
-                if parent and parent.label then
-                    targetHeight = math.ceil(parent.label.height / 2) * 2
-                end
-                local size = targetHeight * self.style.sizeMultiplier
-                self.icon.width = size
-                self.icon.height = size
-                self.width = size
-                self.height = size
-                orig(self)
-            end
-        })
-
-        self:setVisible(self._shown)
-        self:centerIcon()
-    end,
-
-    centerIcon = function(self)
-        local width, height = self.icon.image:getDimensions()
-        return self.icon:with(uiu.at(-0.5 - width / 2, -0.5 - height / 2))
-    end,
-
-    setVisible = function(self, value)
-        self._shown = value
-        self.visible = value
-        if self.icon then
-            self.icon.visible = value
-        end
-    end,
-
-    setEnabled = function(self, value)
-        self._enabled = value
-        self.interactive = value and 1 or -1
-    end,
-
-    updateVisibility = function(self)
-        self.visible = self._enabled and self.visible
-        self.icon.visible = self.visible
-    end,
-
-    getEnabled = function(self)
-        return self._enabled
-    end,
-
-    update = function(self, dt)
-        local style = self.style
-        local color, colorPrev, colorNext = self._fadeColorStyle, self._fadeColor, nil
-
-        if self.hovered then
-            colorNext = style.hoverColor
-        else
-            colorNext = style.color
-        end
-
-        local faded = false
-        local fadeSwap = uiu.fadeSwap
-        local activeColor
-        faded, activeColor, colorPrev, self._fadePrev, self._fadeColor =
-            fadeSwap(faded, color, self._fadePrev, colorPrev, colorNext)
-
-        local fadeTime = faded and 0 or self._fadeTime
-        local fadeDuration = style.fadeDuration
-        if fadeTime < fadeDuration then
-            fadeTime = fadeTime + dt
-            local f = 1 - fadeTime / fadeDuration
-            f = f * f * f * f * f
-            f = 1 - f
-
-            faded = false
-            local fade = uiu.fade
-            faded = fade(faded, f, color, colorPrev, colorNext)
-
-            if faded then
-                self.icon.style.color = activeColor
-                self.icon:repaint()
-            end
-
-            self._fadeTime = fadeTime
-        end
-    end,
-
-    onClick = function(self, x, y, button)
-        if self._enabled and self.visible and button == 1 and self.cb then
-            self:cb()
-        end
-    end
-})
-
-
--- Simple warning sign that can be shown or hidden, and clicked to trigger a callback.
-uie.add("warning_old", {
-    base = "group",  -- simple container, no background
-    interactive = 1, -- can receive clicks
-
-    style = {
-        padding = 0,
-        spacing = 0,
-
-        icon = "ui:icons/warningWhite",
-        color = { 1, 0.9, 0, 1 },  -- bright yellow by default
-        sizeMultiplier = 1.0,      -- 1.0 = normal checkbox size
-        hideWhenInactive = true
-    },
-
-    init = function(self, visible, cb)
-        uie.group.init(self)
-
-        self.cb = cb
-        self._enabled = true
-        self._shown = not not visible -- whether it should be visible
-
-        self.icon = uie.icon(self.style.icon)
-        self.icon.style.color = self.style.color
-        self:addChild(self.icon)
-
-        -- Give it a default size so it shows up immediately
-        self.width = 16
-        self.height = 16
-        self.icon.width = 16
-        self.icon.height = 16
-
-        -- Layout hook
-        self:hook({
-            layout = function(orig, self)
-                local parent = self.parent
-                local targetHeight = 16
-                if parent and parent.label then
-                    targetHeight = math.ceil(parent.label.height / 2) * 2
-                end
-                local size = targetHeight * self.style.sizeMultiplier
-                self.icon.width = size
-                self.icon.height = size
-                self.width = size
-                self.height = size
-                orig(self)
-            end
-        })
-
-        self:setVisible(self._shown)
-        self:centerIcon()
-    end,
-
-    centerIcon = function(self)
-        local width, height = self.icon.image:getDimensions()
-        return self.icon:with(uiu.at(-0.5 - width / 2, -0.5 - height / 2))
-    end,
-
-    setVisible = function(self, value)
-        self._shown = value
-        self.visible = value
-        if self.icon then
-            self.icon.visible = value
-        end
-    end,
-
-    setEnabled = function(self, value)
-        self._enabled = value
-        self.interactive = value and 1 or -1
-    end,
-
-    updateVisibility = function(self)
-        self.visible = self._enabled and self.visible
-        self.icon.visible = self.visible
-    end,
-
-    getEnabled = function(self)
-        return self._enabled
-    end,
-
-    onClick = function(self, x, y, button)
-        if self._enabled and self.visible and button == 1 and self.cb then
-            self:cb()
-        end
-    end
-})
 
 return uie
