@@ -1570,7 +1570,6 @@ uie.add("heart", {
 
     setValue = function(self, value)
         self._value = value
-        --print("setvalue to", value)
         if self.icon then
             self.icon.style.color = value and self.style.activeColor or self.style.inactiveColor
             self.icon:reflow()
