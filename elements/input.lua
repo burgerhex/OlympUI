@@ -1528,8 +1528,222 @@ uie.add("checkbox", {
     end
 })
 
--- Simple heart toggle, no label.
+
 uie.add("heart", {
+    base = "group",
+    interactive = 1,
+
+    style = {
+        padding = 0,
+        spacing = 0,
+        icon = "ui:icons/heartSmallWhite",
+
+        activeColor = {1, 0, 0, 1},
+        activeHoverColor = {1, 0.3, 0.3, 1},
+        inactiveColor = {0.5, 0.5, 0.5, 1},
+        inactiveHoverColor = {0.7, 0.4, 0.4, 1},
+
+        fadeDuration = 0.2
+    },
+
+    init = function(self, value, cb)
+        uie.group.init(self)
+
+        self.cb = cb
+        self._enabled = true
+        self._value = value or false
+
+        self.icon = uie.icon(self.style.icon)
+        self.icon.style.color = { table.unpack(self._value and self.style.activeColor or self.style.inactiveColor) }
+        local width, height = self.icon.image:getDimensions()
+        self.icon = self.icon:with(uiu.at(-0.5 - width / 2, -0.5 - height / 2))
+        self:addChild(self.icon)
+
+        self.width = 16
+        self.height = 16
+
+        self._fadeColor = { table.unpack(self.icon.style.color) }
+        self._fadeColorPrev = { table.unpack(self._fadeColor) }
+        self._fadeTimeColor = 0
+        self._lastHovered = false
+
+        self:hook({
+            layout = function(orig, self)
+                local parent = self.parent
+                local size = 16
+                if parent and parent.label then
+                    size = math.ceil(parent.label.height / 2) * 2
+                end
+                self.icon.width = size
+                self.icon.height = size
+                self.width = size
+                self.height = size
+                orig(self)
+            end
+        })
+    end,
+
+    setValue = function(self, value)
+        self._value = value
+        self._fadeColorPrev = { table.unpack(self._fadeColor) }
+        self._fadeTimeColor = 0
+    end,
+
+    getValue = function(self) return self._value end,
+
+    setEnabled = function(self, value)
+        self._enabled = value
+        self.interactive = value and 1 or -1
+    end,
+
+    update = function(self, dt)
+        local style = self.style
+
+        local targetColor
+        if self._value then
+            targetColor = self.hovered and style.activeHoverColor or style.activeColor
+        else
+            targetColor = self.hovered and style.inactiveHoverColor or style.inactiveColor
+        end
+
+        -- if hover state changed, start fade from current color
+        if self.hovered ~= self._lastHovered or not self._fadeColorPrev then
+            self._fadeColorPrev = { table.unpack(self._fadeColor) }
+            self._fadeTimeColor = 0
+            self._lastHovered = self.hovered
+        end
+
+        -- fade color
+        local f = math.min(self._fadeTimeColor / style.fadeDuration, 1)
+        for i = 1, 4 do
+            self._fadeColor[i] = self._fadeColorPrev[i] + (targetColor[i] - self._fadeColorPrev[i]) * f
+        end
+        self._fadeTimeColor = self._fadeTimeColor + dt
+
+        self.icon.style.color[1] = self._fadeColor[1]
+        self.icon.style.color[2] = self._fadeColor[2]
+        self.icon.style.color[3] = self._fadeColor[3]
+        self.icon.style.color[4] = self._fadeColor[4]
+
+        self.icon:repaint()
+    end,
+
+    onClick = function(self, x, y, button)
+        if self._enabled and button == 1 then
+            self:setValue(not self._value)
+            if self.cb then
+                self:cb(self._value)
+            end
+        end
+    end
+})
+
+
+uie.add("heart_old2", {
+    base = "group",
+    interactive = 1,
+
+    style = {
+        icon = "ui:icons/heartSmallWhite",
+        activeColor = {1, 0, 0, 1},         -- bright red
+        activeHoverColor = {1, 0.3, 0.3, 1}, -- lighter red on hover
+        inactiveColor = {0.5, 0.5, 0.5, 1},  -- gray
+        inactiveHoverColor = {0.7, 0.4, 0.4, 1}, -- grayish-red on hover
+        size = 24,
+        fadeDuration = 0.2
+    },
+
+    init = function(self, value, cb)
+        uie.group.init(self)
+
+        self._enabled = true
+        self._value = value or false
+        self.cb = cb
+
+        -- create icon
+        self.icon = uie.icon(self.style.icon)
+        self.icon.style.color = self._value and self.style.activeColor or self.style.inactiveColor
+        self.icon.width = self.style.size
+        self.icon.height = self.style.size
+        self:addChild(self.icon)
+
+        -- set group size
+        self.width = self.style.size
+        self.height = self.style.size
+
+        -- fade state
+        self._fadeColor = {unpack(self.icon.style.color)}
+        self._fadePrev = {unpack(self._fadeColor)}
+        self._fadeTime = 0
+
+        self:centerIcon()
+    end,
+
+    centerIcon = function(self)
+        local w, h = self.icon.image:getDimensions()
+        self.icon = self.icon:with(uiu.at(-0.5 - w/2, -0.5 - h/2))
+    end,
+
+    setValue = function(self, value)
+        if self._value == value then return end
+        self._value = value
+        -- start fade to new value color
+        self._fadePrev = {unpack(self._fadeColor)}
+        self._fadeTime = 0
+    end,
+
+    getValue = function(self) return self._value end,
+
+    setEnabled = function(self, value)
+        self._enabled = value
+        self.interactive = value and 1 or -1
+    end,
+
+    getEnabled = function(self) return self._enabled end,
+
+    update = function(self, dt)
+        local style = self.style
+
+        -- pick target color based on value + hover
+        local targetColor
+        if self._value then
+            targetColor = self.hovered and style.activeHoverColor or style.activeColor
+        else
+            targetColor = self.hovered and style.inactiveHoverColor or style.inactiveColor
+        end
+
+        -- check if target changed
+        local function colorsEqual(a,b)
+            for i=1,4 do if a[i] ~= b[i] then return false end end
+            return true
+        end
+        if not colorsEqual(targetColor, self._fadePrev) then
+            self._fadePrev = {unpack(self._fadeColor)}
+            self._fadeTime = 0
+        end
+
+        -- fade
+        if self._fadeTime < style.fadeDuration then
+            self._fadeTime = math.min(self._fadeTime + dt, style.fadeDuration)
+            local f = self._fadeTime / style.fadeDuration
+            f = f*f*f*f*f -- quintic easing
+            uiu.fade(false, f, self._fadeColor, self._fadePrev, targetColor)
+            self.icon.style.color = self._fadeColor
+            self.icon:repaint()
+        end
+    end,
+
+    onClick = function(self, x, y, button)
+        if self._enabled and button == 1 then
+            self:setValue(not self._value)
+            if self.cb then self:cb(self._value) end
+        end
+    end
+})
+
+
+-- Simple heart toggle, no label.
+uie.add("heart_old", {
     base = "group",
     interactive = 1,
 
@@ -1590,9 +1804,7 @@ uie.add("heart", {
     end,
 
     onClick = function(self, x, y, button)
-        --print("onclick")
         if self._enabled and button == 1 then
-            --print("calling setvalue")
             self:setValue(not self._value)
             if self.cb then
                 self:cb(self._value)
@@ -1601,175 +1813,269 @@ uie.add("heart", {
     end
 })
 
-
--- Basic star, behaving like a row with a label.
-uie.add("star", {
-    base = "row",
+uie.add("warning", {
+    base = "group",
+    interactive = 1,
 
     style = {
         padding = 0,
-        spacing = 4,
-
-        starNormalBG = { 0.8, 0.8, 0.8, 0.9 },
-        starNormalFG = { 0, 0, 0, 0.8, 0 },
-        starNormalBorder = { 0.08, 0.08, 0.08, 0.6, 1 },
-
-        starDisabledBG = { 0.5, 0.5, 0.5, 0.7 },
-        starDisabledFG = { 0, 0, 0, 0.7, 0 },
-        starDisabledBorder = { 0, 0, 0, 0.7, 1 },
-
-        starHoveredBG = { 1, 1, 1, 0.9 },
-        starHoveredFG = { 0, 0, 0, 0.9, 1 },
-        starHoveredBorder = { 0, 0, 0, 0.9, 1 },
-
-        starPressedBG = { 0.95, 0.95, 0.95, 0.9 },
-        starPressedFG = { 0, 0, 0, 0.9, 1 },
-        starPressedBorder = { 0, 0, 0, 0.9, 1 },
-
-        activeIconColor = { 1, 1, 1, 1.0 },
-        mixedIconColor = { 1, 1, 1, 1.0 },
-        inactiveIconColor = { 1, 1, 1, 1.0 }
+        spacing = 0,
+        icon = "ui:icons/warningWhite",
+        color = { 1, 0.9, 0, 1 },
+        hoverColor = { 1, 1, 0.6, 1 },
+        sizeMultiplier = 1.0,
+        hideWhenInactive = true,
+        fadeInOutDuration = 0.1,
+        fadeColorDuration = 0.2
     },
 
-    init = function(self, value, cb)
-        label = uie.label()
+    init = function(self, visible, cb)
+        uie.group.init(self)
 
-        local star = uie.button():hook({
+        self.cb = cb
+        self._enabled = true
+        self._shown = not not visible
+        self._fadeAlpha = self._shown and 1 or 0
+        self._fadeAlphaTarget = self._shown and 1 or 0
+        self._fadeTimeAlpha = 0
+
+        self.icon = uie.icon(self.style.icon)
+        self.icon.style.color = { table.unpack(self.style.color) }
+        self:addChild(self.icon)
+
+        self.width = 16
+        self.height = 16
+        self.icon.width = 16
+        self.icon.height = 16
+
+        self._fadeColor = { table.unpack(self.icon.style.color) }
+        self._fadeColorPrev = { table.unpack(self._fadeColor) }
+        self._fadeTimeColor = 0
+        self._lastHovered = false
+
+        self:hook({
             layout = function(orig, self)
-                local label = self.parent.label
-                local star = self
-                local height = label.height
-                local heightRounded = math.ceil(label.height / 2) * 2
-
+                local parent = self.parent
+                local targetHeight = 16
+                if parent and parent.label then
+                    targetHeight = math.ceil(parent.label.height / 2) * 2
+                end
+                local size = targetHeight * self.style.sizeMultiplier
+                self.icon.width = size
+                self.icon.height = size
+                self.width = size
+                self.height = size
                 orig(self)
-
-                star.width = heightRounded
-                star.height = heightRounded
-                star.realWidth = heightRounded
-                star.realHeight = heightRounded
             end
         })
 
-        star.style.normalBG = self.style.starNormalBG
-        star.style.normalFG = self.style.starNormalFG
-        star.style.normalBorder = self.style.starNormalBorder
+        self:setVisible(self._shown)
+        self:centerIcon()
+    end,
 
-        star.style.disabledBG = self.style.starDisabledBG
-        star.style.disabledFG = self.style.starDisabledFG
-        star.style.disabledBorder = self.style.starDisabledBorder
+    centerIcon = function(self)
+        local width, height = self.icon.image:getDimensions()
+        self.icon = self.icon:with(uiu.at(-0.5 - width / 2, -0.5 - height / 2))
+    end,
 
-        star.style.hoveredBG = self.style.starHoveredBG
-        star.style.hoveredFG = self.style.starHoveredFG
-        star.style.hoveredBorder = self.style.starHoveredBorder
+    setVisible = function(self, value)
+        self._shown = value
+        self.visible = true  -- keep visible for fade
+        if value and self._fadeAlpha == 0 then
+            self._fadeTimeAlpha = 0
+            self._fadeAlphaTarget = 1
+        elseif not value then
+            self._fadeTimeAlpha = 0
+            self._fadeAlphaTarget = 0
+        end
+    end,
 
-        star.style.pressedBG = self.style.starPressedBG
-        star.style.pressedFG = self.style.starPressedFG
-        star.style.pressedBorder = self.style.starPressedBorder
-
-        -- Make sure the label has its height set, star needs this
-        label:layout()
-
-        uie.row.init(self, { star, label })
-
-        self.star = star
-        self.label = label
-        self.enabled = true
-        self.cb = cb
-        self.value = value
-        self.activeIcon = "ui:icons/starFilled"
-        self.mixedIcon = "ui:icons/starMixed"
-        self.inactiveIcon = "ui:icons/starEmpty"
-
-        self:layout()
-        self:updateIcon()
+    setEnabled = function(self, value)
+        self._enabled = value
+        self.interactive = value and 1 or -1
     end,
 
     getEnabled = function(self)
         return self._enabled
     end,
 
-    setEnabled = function(self, value)
-        self.star:setEnabled(value)
-        self._enabled = value
-        self.interactive = value and 1 or -1
-    end,
+    update = function(self, dt)
+        local style = self.style
 
-    getText = function(self)
-        return self.label.text
-    end,
-
-    setText = function(self, value)
-        self.label.text = value
-    end,
-
-    getValue = function(self)
-        return self._value
-    end,
-
-    setValue = function(self, value)
-        self._value = value
-        self:updateIcon()
-    end,
-
-    centerIcon = function(self, icon)
-        local width, height = icon.image:getDimensions()
-
-        return icon:with(uiu.at(-0.5 - width / 2, -0.5 - height / 2))
-    end,
-
-    updateIcon = function(self)
-        local star = self.star
-        local children = star.children or {}
-        local value = self.value
-        local previousValue = self._previousIconValue
-
-        if value ~= previousValue then
-            while #children > 0 do
-                table.remove(children, 1)
-            end
+        -- fade alpha
+        if self._fadeAlpha ~= self._fadeAlphaTarget then
+            self._fadeTimeAlpha = self._fadeTimeAlpha + dt
+            local f = math.min(self._fadeTimeAlpha / style.fadeInOutDuration, 1)
+            self._fadeAlpha = self._fadeAlphaTarget == 1 and f or (1 - f)
         end
 
-        local icon
-        local iconColor
-        if value and self.activeIcon then
-            icon = self.activeIcon
-            color = self.style.activeIconColor
-        elseif value == nil and self.mixedIcon then
-            icon = self.mixedIcon
-            color = self.style.mixedIconColor
-        elseif value == false and self.inactiveIcon then
-            icon = self.inactiveIcon
-            color = self.style.inactiveIconColor
+        -- determine target color
+        local colorNext = self.hovered and style.hoverColor or style.color
+
+        -- if hover state changed, start fade from current color
+        if self.hovered ~= self._lastHovered then
+            self._fadeColorPrev = { table.unpack(self._fadeColor) }
+            self._fadeTimeColor = 0
+            self._lastHovered = self.hovered
         end
 
-        if icon then
-            if type(icon) == "string" then
-                icon = uie.icon(icon)
-            end
-
-            icon = self:centerIcon(icon)
-            icon.style.color = color
-            star:addChild(icon)
+        -- fade color
+        local fColor = math.min((self._fadeTimeColor or 0) / style.fadeColorDuration, 1)
+        for i = 1, 4 do
+            self._fadeColor[i] = self._fadeColorPrev[i] + (colorNext[i] - self._fadeColorPrev[i]) * fColor
         end
+        self._fadeTimeColor = (self._fadeTimeColor or 0) + dt
 
-        self._previousIconValue = value
+        -- apply alpha
+        self.icon.style.color[1] = self._fadeColor[1]
+        self.icon.style.color[2] = self._fadeColor[2]
+        self.icon.style.color[3] = self._fadeColor[3]
+        self.icon.style.color[4] = self._fadeColor[4] * self._fadeAlpha
 
-        star:reflow()
+        self.icon:repaint()
     end,
 
     onClick = function(self, x, y, button)
-        if self.enabled and button == 1 then
-            self:setValue(not self:getValue())
-
-            if self.cb then
-                self:cb(self.value)
-            end
+        if self._enabled and self._fadeAlpha > 0 and button == 1 and self.cb then
+            self:cb()
         end
     end
 })
 
+
 -- Simple warning sign that can be shown or hidden, and clicked to trigger a callback.
-uie.add("warning", {
+uie.add("warning_old2", {
+    base = "group",
+    interactive = 1,
+
+    style = {
+        padding = 0,
+        spacing = 0,
+
+        icon = "ui:icons/warningWhite",
+        color = { 1, 0.9, 0, 1 },           -- normal bright yellow
+        hoverColor = { 1, 1, 0.6, 1 },      -- slightly lighter yellow
+        sizeMultiplier = 1.0,
+        hideWhenInactive = true,
+        fadeDuration = 0.2
+    },
+
+    init = function(self, visible, cb)
+        uie.group.init(self)
+
+        self.cb = cb
+        self._enabled = true
+        self._shown = not not visible
+
+        self.icon = uie.icon(self.style.icon)
+        self.icon.style.color = self.style.color
+        self:addChild(self.icon)
+
+        self.width = 16
+        self.height = 16
+        self.icon.width = 16
+        self.icon.height = 16
+
+        self._fadeColorStyle = {}
+        self._fadePrev = false
+        self._fadeColor = false
+        self._fadeTime = 0
+
+        -- Layout hook
+        self:hook({
+            layout = function(orig, self)
+                local parent = self.parent
+                local targetHeight = 16
+                if parent and parent.label then
+                    targetHeight = math.ceil(parent.label.height / 2) * 2
+                end
+                local size = targetHeight * self.style.sizeMultiplier
+                self.icon.width = size
+                self.icon.height = size
+                self.width = size
+                self.height = size
+                orig(self)
+            end
+        })
+
+        self:setVisible(self._shown)
+        self:centerIcon()
+    end,
+
+    centerIcon = function(self)
+        local width, height = self.icon.image:getDimensions()
+        return self.icon:with(uiu.at(-0.5 - width / 2, -0.5 - height / 2))
+    end,
+
+    setVisible = function(self, value)
+        self._shown = value
+        self.visible = value
+        if self.icon then
+            self.icon.visible = value
+        end
+    end,
+
+    setEnabled = function(self, value)
+        self._enabled = value
+        self.interactive = value and 1 or -1
+    end,
+
+    updateVisibility = function(self)
+        self.visible = self._enabled and self.visible
+        self.icon.visible = self.visible
+    end,
+
+    getEnabled = function(self)
+        return self._enabled
+    end,
+
+    update = function(self, dt)
+        local style = self.style
+        local color, colorPrev, colorNext = self._fadeColorStyle, self._fadeColor, nil
+
+        if self.hovered then
+            colorNext = style.hoverColor
+        else
+            colorNext = style.color
+        end
+
+        local faded = false
+        local fadeSwap = uiu.fadeSwap
+        local activeColor
+        faded, activeColor, colorPrev, self._fadePrev, self._fadeColor =
+            fadeSwap(faded, color, self._fadePrev, colorPrev, colorNext)
+
+        local fadeTime = faded and 0 or self._fadeTime
+        local fadeDuration = style.fadeDuration
+        if fadeTime < fadeDuration then
+            fadeTime = fadeTime + dt
+            local f = 1 - fadeTime / fadeDuration
+            f = f * f * f * f * f
+            f = 1 - f
+
+            faded = false
+            local fade = uiu.fade
+            faded = fade(faded, f, color, colorPrev, colorNext)
+
+            if faded then
+                self.icon.style.color = activeColor
+                self.icon:repaint()
+            end
+
+            self._fadeTime = fadeTime
+        end
+    end,
+
+    onClick = function(self, x, y, button)
+        if self._enabled and self.visible and button == 1 and self.cb then
+            self:cb()
+        end
+    end
+})
+
+
+-- Simple warning sign that can be shown or hidden, and clicked to trigger a callback.
+uie.add("warning_old", {
     base = "group",  -- simple container, no background
     interactive = 1, -- can receive clicks
 
@@ -1851,185 +2157,6 @@ uie.add("warning", {
     onClick = function(self, x, y, button)
         if self._enabled and self.visible and button == 1 and self.cb then
             self:cb()
-        end
-    end
-})
-
-
--- Basic warning sign, behaving like a row with a label.
-uie.add("warning_old", {
-    base = "row",
-
-    style = {
-        padding = 0,
-        spacing = 4,
-
-        warningNormalBG = { 0.8, 0.8, 0.8, 0.9 },
-        warningNormalFG = { 0, 0, 0, 0.8, 0 },
-        warningNormalBorder = { 0.08, 0.08, 0.08, 0.6, 1 },
-
-        warningDisabledBG = { 0.5, 0.5, 0.5, 0.7 },
-        warningDisabledFG = { 0, 0, 0, 0.7, 0 },
-        warningDisabledBorder = { 0, 0, 0, 0.7, 1 },
-
-        warningHoveredBG = { 1, 1, 1, 0.9 },
-        warningHoveredFG = { 0, 0, 0, 0.9, 1 },
-        warningHoveredBorder = { 0, 0, 0, 0.9, 1 },
-
-        warningPressedBG = { 0.95, 0.95, 0.95, 0.9 },
-        warningPressedFG = { 0, 0, 0, 0.9, 1 },
-        warningPressedBorder = { 0, 0, 0, 0.9, 1 },
-
-        activeIconColor = { 1, 1, 1, 1.0 },
-        mixedIconColor = { 1, 1, 1, 1.0 },
-        inactiveIconColor = { 1, 1, 1, 1.0 },
-
-        warningHideWhenInactive = true
-    },
-
-    init = function(self, value, cb)
-        label = uie.label()
-
-        local warning = uie.button():hook({
-            layout = function(orig, self)
-                local label = self.parent.label
-                local warning = self
-                local height = label.height
-                local heightRounded = math.ceil(label.height / 2) * 2
-
-                orig(self)
-
-                warning.width = heightRounded
-                warning.height = heightRounded
-                warning.realWidth = heightRounded
-                warning.realHeight = heightRounded
-            end,
-            draw = function(orig, self)
-                if self.hideWarning then
-                    return
-                end
-                orig(self)
-            end
-        })
-
-        warning.style.normalBG = self.style.warningNormalBG
-        warning.style.normalFG = self.style.warningNormalFG
-        warning.style.normalBorder = self.style.warningNormalBorder
-
-        warning.style.disabledBG = self.style.warningDisabledBG
-        warning.style.disabledFG = self.style.warningDisabledFG
-        warning.style.disabledBorder = self.style.warningDisabledBorder
-
-        warning.style.hoveredBG = self.style.warningHoveredBG
-        warning.style.hoveredFG = self.style.warningHoveredFG
-        warning.style.hoveredBorder = self.style.warningHoveredBorder
-
-        warning.style.pressedBG = self.style.warningPressedBG
-        warning.style.pressedFG = self.style.warningPressedFG
-        warning.style.pressedBorder = self.style.warningPressedBorder
-
-        warning.style.warningHideWhenInactive = self.style.warningHideWhenInactive
-
-        -- Make sure the label has its height set, warning needs this
-        label:layout()
-
-        uie.row.init(self, { warning, label })
-
-        self.warning = warning
-        self.label = label
-        self.enabled = true
-        self.cb = cb
-        self.value = value
-        self.activeIcon = "ui:icons/warningFilled"
-        self.mixedIcon = "ui:icons/warningMixed"
-        self.inactiveIcon = "ui:icons/warningEmpty"
-
-        self:layout()
-        self:updateIcon()
-    end,
-
-    getEnabled = function(self)
-        return self._enabled
-    end,
-
-    setEnabled = function(self, value)
-        self.warning:setEnabled(value)
-        self._enabled = value
-        self.interactive = value and 1 or -1
-    end,
-
-    getText = function(self)
-        return self.label.text
-    end,
-
-    setText = function(self, value)
-        self.label.text = value
-    end,
-
-    getValue = function(self)
-        return self._value
-    end,
-
-    setValue = function(self, value)
-        self._value = value
-        self:updateIcon()
-    end,
-
-    centerIcon = function(self, icon)
-        local width, height = icon.image:getDimensions()
-
-        return icon:with(uiu.at(-0.5 - width / 2, -0.5 - height / 2))
-    end,
-
-    updateIcon = function(self)
-        local warning = self.warning
-        local children = warning.children or {}
-        local value = self.value
-        local previousValue = self._previousIconValue
-
-        if value ~= previousValue then
-            while #children > 0 do
-                table.remove(children, 1)
-            end
-        end
-
-        local icon
-        local iconColor
-        if value and self.activeIcon then
-            icon = self.activeIcon
-            color = self.style.activeIconColor
-        elseif value == nil and self.mixedIcon then
-            icon = self.mixedIcon
-            color = self.style.mixedIconColor
-        elseif value == false and self.inactiveIcon then
-            icon = self.inactiveIcon
-            color = self.style.inactiveIconColor
-        end
-
-        if icon then
-            if type(icon) == "string" then
-                icon = uie.icon(icon)
-            end
-
-            icon = self:centerIcon(icon)
-            icon.style.color = color
-            warning:addChild(icon)
-        end
-
-        self._previousIconValue = value
-
-        warning.hideWarning = self.style.warningHideWhenInactive and not value
-
-        warning:reflow()
-    end,
-
-    onClick = function(self, x, y, button)
-        if self.enabled and button == 1 then
-            --self:setValue(not self:getValue())
-
-            if self.cb then
-                self:cb(self.value)
-            end
         end
     end
 })
