@@ -1534,8 +1534,7 @@ uie.add("heart", {
     interactive = 1,
 
     style = {
-        icon = "ui:icons/heartFilled",   -- default icon path for active
-        inactiveIcon = "ui:icons/heartEmpty",
+        icon = "ui:icons/heartSmallWhite",   -- default icon path for active
         activeColor = { 1, 0, 0, 1 },    -- red when active
         inactiveColor = { 0.5, 0.5, 0.5, 1 }, -- gray when inactive
         size = 24
@@ -1549,7 +1548,7 @@ uie.add("heart", {
         self.cb = cb
 
         -- create the icon
-        local iconPath = self._value and self.style.icon or self.style.inactiveIcon
+        local iconPath = self.style.icon
         self.icon = uie.icon(iconPath)
         self.icon.style.color = self._value and self.style.activeColor or self.style.inactiveColor
         self.icon.width = self.style.size
@@ -1571,10 +1570,10 @@ uie.add("heart", {
 
     setValue = function(self, value)
         self._value = value
+        --print("setvalue to", value)
         if self.icon then
             self.icon.style.color = value and self.style.activeColor or self.style.inactiveColor
-            local path = value and self.style.icon or self.style.inactiveIcon
-            self.icon:setImage(path)
+            self.icon:reflow()
         end
     end,
 
@@ -1592,7 +1591,9 @@ uie.add("heart", {
     end,
 
     onClick = function(self, x, y, button)
+        --print("onclick")
         if self._enabled and button == 1 then
+            --print("calling setvalue")
             self:setValue(not self._value)
             if self.cb then
                 self:cb(self._value)
@@ -1777,7 +1778,7 @@ uie.add("warning", {
         padding = 0,
         spacing = 0,
 
-        icon = "ui:icons/warningBig",
+        icon = "ui:icons/warningWhite",
         color = { 1, 0.9, 0, 1 },  -- bright yellow by default
         sizeMultiplier = 1.0,      -- 1.0 = normal checkbox size
         hideWhenInactive = true
