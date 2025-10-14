@@ -1538,7 +1538,7 @@ uie.add("heart", {
         padding = 0,
         spacing = 0,
         size = 20,
-        icon = "ui:icons/heartSmallWhite",
+        icon = "ui:icons/heart",
 
         activeColor = {1, 0, 0, 1},
         activeHoverColor = {1, 0.3, 0.3, 1},
@@ -1646,7 +1646,7 @@ uie.add("warning", {
         padding = 0,
         spacing = 0,
         size = 20,
-        icon = "ui:icons/warningWhite",
+        icon = "ui:icons/warning",
         color = { 1, 0.9, 0, 1 },
         hoverColor = { 1, 1, 0.6, 1 },
         fadeDuration = 0.2
