@@ -1529,6 +1529,7 @@ uie.add("checkbox", {
 })
 
 
+-- Heart icon that can be toggled on and off, typically used to mark favorites
 uie.add("heart", {
     base = "group",
     interactive = 1,
@@ -1563,10 +1564,109 @@ uie.add("heart", {
         self.width = self.style.size
         self.height = self.style.size
 
-        self._fadeColor = { table.unpack(self.icon.style.color) }
-        self._fadeColorPrev = { table.unpack(self._fadeColor) }
-        self._fadeTimeColor = 0
-        self._lastHovered = false
+        self:hook({
+            layout = function(orig, self)
+                local parent = self.parent
+                local size = self.style.size
+                if parent and parent.label then
+                    size = math.ceil(parent.label.height / 2) * 2
+                end
+                self.icon.width = size
+                self.icon.height = size
+                self.width = size
+                self.height = size
+                orig(self)
+            end
+        })
+    end,
+
+    revive = function(self)
+        self._fadeFGStyle, self._fadeFGPrev, self._fadeFG = {}, false, false
+    end,
+
+    setValue = function(self, value)
+        self._value = value
+    end,
+
+    getValue = function(self) return self._value end,
+
+    setEnabled = function(self, value)
+        self._enabled = value
+        self.interactive = value and 1 or -1
+    end,
+
+    update = function(self, dt)
+        local style = self.style
+        local fg, fgPrev, fgNext = self._fadeFGStyle, self._fadeFG, nil
+
+        if self._value then
+            fgNext = self.hovered and style.activeHoverColor or style.activeColor
+        else
+            fgNext = self.hovered and style.inactiveHoverColor or style.inactiveColor
+        end
+
+        local faded = false
+        faded, self.icon.style.color, fgPrev, self._fadeFGPrev, self._fadeFG = uiu.fadeSwap(faded, fg, self._fadeFGPrev, fgPrev, fgNext)
+
+        local fadeTime = faded and 0 or self._fadeTime
+        local fadeDuration = style.fadeDuration
+        if fadeTime < fadeDuration then
+            fadeTime = fadeTime + dt
+            local f = 1 - fadeTime / fadeDuration
+            f = f * f * f * f * f
+            f = 1 - f
+
+            faded = uiu.fade(faded, f, fg, fgPrev, fgNext)
+
+            if faded then
+                self:repaint()
+            end
+
+            self._fadeTime = fadeTime
+        end
+    end,
+
+    onClick = function(self, x, y, button)
+        if self._enabled and button == 1 then
+            self:setValue(not self._value)
+            if self.cb then
+                self:cb(self._value)
+            end
+        end
+    end
+})
+
+
+-- Warning icon that can be toggled on and off, typically used to mark warnings
+uie.add("warning", {
+    base = "group",
+    interactive = 1,
+
+    style = {
+        padding = 0,
+        spacing = 0,
+        size = 20,
+        icon = "ui:icons/warningWhite",
+        color = { 1, 0.9, 0, 1 },
+        hoverColor = { 1, 1, 0.6, 1 },
+        fadeDuration = 0.2
+    },
+
+    init = function(self, value, cb)
+        uie.group.init(self)
+
+        self.cb = cb
+        self._enabled = true
+        self._value = value or false
+
+        self.icon = uie.icon(self.style.icon)
+        self.icon.style.color = { table.unpack(self.style.color) }
+        local width, height = self.icon.image:getDimensions()
+        self.icon = self.icon:with(uiu.at(-0.5 - width / 2, -0.5 - height / 2))
+        self:addChild(self.icon)
+
+        self.width = self.style.size
+        self.height = self.style.size
 
         self:hook({
             layout = function(orig, self)
@@ -1584,10 +1684,12 @@ uie.add("heart", {
         })
     end,
 
+    revive = function(self)
+        self._fadeFGStyle, self._fadeFGPrev, self._fadeFG = {}, false, false
+    end,
+
     setValue = function(self, value)
         self._value = value
-        self._fadeColorPrev = { table.unpack(self._fadeColor) }
-        self._fadeTimeColor = 0
     end,
 
     getValue = function(self) return self._value end,
@@ -1599,172 +1701,40 @@ uie.add("heart", {
 
     update = function(self, dt)
         local style = self.style
+        local fg, fgPrev, fgNext = self._fadeFGStyle, self._fadeFG, nil
 
-        local targetColor
-        if self._value then
-            targetColor = self.hovered and style.activeHoverColor or style.activeColor
-        else
-            targetColor = self.hovered and style.inactiveHoverColor or style.inactiveColor
+        fgNext = { table.unpack(self.hovered and style.hoverColor or style.color) }
+        if not self._value then
+            fgNext[4] = 0
         end
 
-        -- if hover state changed, start fade from current color
-        if self.hovered ~= self._lastHovered or not self._fadeColorPrev then
-            self._fadeColorPrev = { table.unpack(self._fadeColor) }
-            self._fadeTimeColor = 0
-            self._lastHovered = self.hovered
+        local faded = false
+        faded, self.icon.style.color, fgPrev, self._fadeFGPrev, self._fadeFG = uiu.fadeSwap(faded, fg, self._fadeFGPrev, fgPrev, fgNext)
+
+        local fadeTime = faded and 0 or self._fadeTime
+        local fadeDuration = style.fadeDuration
+        if fadeTime < fadeDuration then
+            fadeTime = fadeTime + dt
+            local f = 1 - fadeTime / fadeDuration
+            f = f * f * f * f * f
+            f = 1 - f
+
+            faded = uiu.fade(faded, f, fg, fgPrev, fgNext)
+
+            if faded then
+                self:repaint()
+            end
+
+            self._fadeTime = fadeTime
         end
-
-        -- fade color
-        local f = math.min(self._fadeTimeColor / style.fadeDuration, 1)
-        for i = 1, 4 do
-            self._fadeColor[i] = self._fadeColorPrev[i] + (targetColor[i] - self._fadeColorPrev[i]) * f
-        end
-        self._fadeTimeColor = self._fadeTimeColor + dt
-
-        self.icon.style.color[1] = self._fadeColor[1]
-        self.icon.style.color[2] = self._fadeColor[2]
-        self.icon.style.color[3] = self._fadeColor[3]
-        self.icon.style.color[4] = self._fadeColor[4]
-
-        self.icon:repaint()
     end,
 
     onClick = function(self, x, y, button)
         if self._enabled and button == 1 then
             self:setValue(not self._value)
             if self.cb then
-                self:cb(self._value)
+                self:cb()
             end
-        end
-    end
-})
-
-
-uie.add("warning", {
-    base = "group",
-    interactive = 1,
-
-    style = {
-        padding = 0,
-        spacing = 0,
-        size = 20,
-        icon = "ui:icons/warningWhite",
-        color = { 1, 0.9, 0, 1 },
-        hoverColor = { 1, 1, 0.6, 1 },
-        hideWhenInactive = true,
-        fadeInOutDuration = 0.1,
-        fadeColorDuration = 0.2
-    },
-
-    init = function(self, visible, cb)
-        uie.group.init(self)
-
-        self.cb = cb
-        self._enabled = true
-        self._shown = not not visible
-        self._fadeAlpha = self._shown and 1 or 0
-        self._fadeAlphaTarget = self._shown and 1 or 0
-        self._fadeTimeAlpha = 0
-
-        self.icon = uie.icon(self.style.icon)
-        self.icon.style.color = { table.unpack(self.style.color) }
-        self:addChild(self.icon)
-
-        self.width = self.style.size
-        self.height = self.style.size
-        self.icon.width = self.style.size
-        self.icon.height = self.style.size
-
-        self._fadeColor = { table.unpack(self.icon.style.color) }
-        self._fadeColorPrev = { table.unpack(self._fadeColor) }
-        self._fadeTimeColor = 0
-        self._lastHovered = false
-
-        self:hook({
-            layout = function(orig, self)
-                local parent = self.parent
-                local targetHeight = self.style.size
-                if parent and parent.label then
-                    targetHeight = math.ceil(parent.label.height / 2) * 2
-                end
-                local size = targetHeight
-                self.icon.width = size
-                self.icon.height = size
-                self.width = size
-                self.height = size
-                orig(self)
-            end
-        })
-
-        self:setVisible(self._shown)
-        self:centerIcon()
-    end,
-
-    centerIcon = function(self)
-        local width, height = self.icon.image:getDimensions()
-        self.icon = self.icon:with(uiu.at(-0.5 - width / 2, -0.5 - height / 2))
-    end,
-
-    setVisible = function(self, value)
-        self._shown = value
-        self.visible = true  -- keep visible for fade
-        if value and self._fadeAlpha == 0 then
-            self._fadeTimeAlpha = 0
-            self._fadeAlphaTarget = 1
-        elseif not value then
-            self._fadeTimeAlpha = 0
-            self._fadeAlphaTarget = 0
-        end
-    end,
-
-    setEnabled = function(self, value)
-        self._enabled = value
-        self.interactive = value and 1 or -1
-    end,
-
-    getEnabled = function(self)
-        return self._enabled
-    end,
-
-    update = function(self, dt)
-        local style = self.style
-
-        -- fade alpha
-        if self._fadeAlpha ~= self._fadeAlphaTarget then
-            self._fadeTimeAlpha = self._fadeTimeAlpha + dt
-            local f = math.min(self._fadeTimeAlpha / style.fadeInOutDuration, 1)
-            self._fadeAlpha = self._fadeAlphaTarget == 1 and f or (1 - f)
-        end
-
-        -- determine target color
-        local colorNext = self.hovered and style.hoverColor or style.color
-
-        -- if hover state changed, start fade from current color
-        if self.hovered ~= self._lastHovered then
-            self._fadeColorPrev = { table.unpack(self._fadeColor) }
-            self._fadeTimeColor = 0
-            self._lastHovered = self.hovered
-        end
-
-        -- fade color
-        local fColor = math.min((self._fadeTimeColor or 0) / style.fadeColorDuration, 1)
-        for i = 1, 4 do
-            self._fadeColor[i] = self._fadeColorPrev[i] + (colorNext[i] - self._fadeColorPrev[i]) * fColor
-        end
-        self._fadeTimeColor = (self._fadeTimeColor or 0) + dt
-
-        -- apply alpha
-        self.icon.style.color[1] = self._fadeColor[1]
-        self.icon.style.color[2] = self._fadeColor[2]
-        self.icon.style.color[3] = self._fadeColor[3]
-        self.icon.style.color[4] = self._fadeColor[4] * self._fadeAlpha
-
-        self.icon:repaint()
-    end,
-
-    onClick = function(self, x, y, button)
-        if self._enabled and self._fadeAlpha > 0 and button == 1 and self.cb then
-            self:cb()
         end
     end
 })
